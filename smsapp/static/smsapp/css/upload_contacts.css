@@ -1,0 +1,91 @@
+* { box-sizing: border-box; margin:0; padding:0; }
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #f9f9f9, #e0f7ff);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+}
+
+/* Navbar */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #d63384;
+  padding: 12px 0;
+  margin-bottom: 25px;
+  border-radius: 8px;
+  width: 500px;          /* full width */
+  max-width: 100%;      /* ensure it stretches across body */
+  box-sizing: border-box;
+}
+
+
+.navbar a { color: white; text-decoration: none; margin: 0 15px; font-weight: 600; }
+.navbar a:hover { text-decoration: underline; }
+.logo-navbar { width: 50px; height: auto; margin: 0 10px; }
+
+/* Upload card */
+.upload-box {
+  background: #fff;
+  max-width: 500px;
+  width: 100%;
+  padding: 35px 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+h2 { font-size: 1.7rem; color: #333; margin-bottom: 20px; }
+
+input[type=file] {
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0 20px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+}
+input[type=file]:focus { border-color: #d63384; outline: none; }
+
+
+/* Upload button styled like Send SMS button */
+button[type="submit"] {
+  background-color: #28a745; /* Primary green */
+  color: white;
+  border: none;
+  padding: 12px 0;
+  width: 100%;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.15s;
+}
+
+/* Hover effect */
+button[type="submit"]:hover {
+  background-color: #218838; /* Slightly darker green */
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+
+/* After click / uploaded state */
+button[type="submit"].sent {
+  background-color: #0d6efd; /* Blue */
+  color: white;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .upload-box { padding: 25px 20px; }
+  button { font-size: 1rem; }
+  .navbar { flex-direction: column; gap: 10px; }
+  .logo-navbar { margin: 0; }
+}

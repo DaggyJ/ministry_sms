@@ -1,0 +1,46 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload Contacts | Belove Church Kenya</title>
+  <link rel="stylesheet" href="{% static 'smsapp/css/upload_contacts.css' %}">
+</head>
+<body>
+
+<!-- Navbar with logo between links -->
+<nav class="navbar">
+  <a href="{% url 'dashboard' %}">Dashboard</a>
+  <img src="{% static 'media/logo.jpg' %}" alt="Belove Church Logo" class="logo-navbar">
+  <a href="{% url 'upload_contacts' %}">Upload Contacts</a>
+</nav>
+
+<div class="upload-box">
+
+  <h2>Upload Contacts (Excel)</h2>
+
+  {% if message %}
+    <p class="msg success">{{ message }}</p>
+  {% elif error %}
+    <p class="msg error">{{ error }}</p>
+  {% endif %}
+
+  <form method="post" enctype="multipart/form-data" id="uploadForm">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Upload</button>
+  </form>
+
+  <div class="msg info">
+    <p><strong>Excel Format:</strong></p>
+    <p>Name | Phone | Category</p>
+  </div>
+
+</div>
+
+<!-- External JS -->
+<script src="{% static 'smsapp/js/upload_contacts.js' %}"></script>
+
+</body>
+</html>

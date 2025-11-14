@@ -1,0 +1,136 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SMS Dashboard | Belove Church Kenya</title>
+  <link rel="stylesheet" href="{% static 'smsapp/css/dashboard.css' %}">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="{% url 'dashboard' %}">Dashboard</a>
+    <img src="{% static 'media/logo.jpg' %}" alt="Belove Church Logo" class="logo-navbar">
+    <a href="{% url 'upload_contacts' %}">Upload Contacts</a>
+  </nav>
+
+  <div class="dashboard-box">
+    <h2>Send Bulk SMS</h2>
+
+    <!-- Category Tabs -->
+    <div class="tabs">
+      <button type="button" class="tab-btn" data-category="Regional">Regional</button>
+      <button type="button" class="tab-btn" data-category="Subregional">Subregional</button>
+      <button type="button" class="tab-btn" data-category="Pastors">Pastors</button>
+    </div>
+
+    <!-- Recipients container -->
+    <div id="recipientsContainer">
+      <!-- AJAX will populate checkboxes here -->
+    </div>
+
+    {% if result %}
+      <p class="msg success">{{ result }}</p>
+    {% endif %}
+
+    <form method="post" id="smsForm">
+      {% csrf_token %}
+      <input type="hidden" name="category" id="selectedCategory">
+      
+      <textarea name="message" id="message" rows="5" placeholder="Type your message..." required></textarea>
+      <button type="submit" id="sendSmsBtn">Send SMS</button>
+    </form>
+  </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const tabs = document.querySelectorAll('.tab-btn');
+      const categoryInput = document.getElementById('selectedCategory');
+      const form = document.getElementById('smsForm');
+      const messageInput = document.getElementById('message');
+      const sendBtn = document.getElementById('sendSmsBtn');
+      const recipientsContainer = document.getElementById('recipientsContainer');
+
+      // Sample data (replace with AJAX call to your backend)
+      const pastorsData = {
+        Regional: [
+          { name: 'Pastor John', phone: '0712345678' },
+          { name: 'Pastor Mary', phone: '0723456789' }
+        ],
+        Subregional: [
+          { name: 'Pastor Peter', phone: '0734567890' },
+          { name: 'Pastor Grace', phone: '0745678901' }
+        ],
+        Pastors: [
+          { name: 'Pastor James', phone: '0756789012' },
+          { name: 'Pastor Anna', phone: '0767890123' }
+        ]
+      };
+
+      // Render pastors as checkboxes
+      function renderRecipients(category) {
+        recipientsContainer.innerHTML = ''; // clear previous
+        if (!pastorsData[category]) return;
+        pastorsData[category].forEach((p, i) => {
+          const div = document.createElement('div');
+          div.style.marginBottom = '8px';
+          div.innerHTML = `
+            <label>
+              <input type="checkbox" name="recipients" value="${p.phone}">
+              ${p.name} (${p.phone})
+            </label>
+          `;
+          recipientsContainer.appendChild(div);
+        });
+      }
+
+      // Tab click handling
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          categoryInput.value = tab.dataset.category;
+
+          // Remove 'selected' from all tabs
+          tabs.forEach(t => t.classList.remove('selected'));
+          // Add 'selected' to clicked tab
+          tab.classList.add('selected');
+
+          // Render recipients for this category
+          renderRecipients(tab.dataset.category);
+        });
+      });
+
+      // Form submit validation
+      form.addEventListener('submit', function(e) {
+        const checkedRecipients = recipientsContainer.querySelectorAll('input[name="recipients"]:checked');
+        if (!categoryInput.value) {
+          e.preventDefault();
+          alert("Please select a category before sending the message.");
+          return;
+        }
+        if (!checkedRecipients.length) {
+          e.preventDefault();
+          alert("Please select at least one recipient.");
+          return;
+        }
+        if (!messageInput.value.trim()) {
+          e.preventDefault();
+          alert("Please type a message before sending.");
+          messageInput.focus();
+          return;
+        }
+
+        // Change button to 'sent' state
+        sendBtn.classList.add('sent');
+        sendBtn.textContent = 'Sent';
+        sendBtn.disabled = true;
+
+        setTimeout(() => {
+          sendBtn.classList.remove('sent');
+          sendBtn.textContent = 'Send SMS';
+          sendBtn.disabled = false;
+        }, 3000);
+      });
+    });
+  </script>
+</body>
+</html>
