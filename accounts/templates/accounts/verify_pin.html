@@ -1,0 +1,29 @@
+
+{% extends "accounts/base_auth.html" %}
+{% block title %}Verify PIN{% endblock %}
+
+{% block content %}
+<div class="col-md-4 mx-auto card p-4 shadow">
+    <h3 class="text-center mb-3">Verify Your PIN</h3>
+
+    {% if messages %}
+        {% for message in messages %}
+            <p class="msg {% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</p>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="code">Enter 6-digit code sent to your email:</label>
+            <input type="text" name="code" id="code" maxlength="6" class="form-control" placeholder="123456" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Verify</button>
+    </form>
+
+    <p class="text-center mt-3">
+        Didn't receive a code? <a href="{% url 'accounts:reset_pin' %}">Resend</a>
+    </p>
+</div>
+{% endblock %}

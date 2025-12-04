@@ -1,0 +1,90 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Sign Up{% endblock %}
+
+{% block content %}
+<div class="col-md-5 mx-auto card p-4 shadow">
+    <h3 class="text-center mb-3">Create Account</h3>
+
+    <form id="signupForm" method="POST">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label>Username</label>
+            <input name="username" class="form-control" required>
+            <div class="text-danger" id="error_username"></div>
+        </div>
+
+        <div class="mb-3">
+            <label>Email</label>
+            <input name="email" type="email" class="form-control" required>
+            <div class="text-danger" id="error_email"></div>
+        </div>
+
+        <div class="mb-3">
+            <label>Password</label>
+            <input name="password1" type="password" class="form-control" required>
+            <div class="text-danger" id="error_password1"></div>
+        </div>
+
+        <div class="mb-3">
+            <label>Confirm Password</label>
+            <input name="password2" type="password" class="form-control" required>
+            <div class="text-danger" id="error_password2"></div>
+        </div>
+
+        <button type="submit" class="btn btn-success w-100">Register</button>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'accounts:login' %}">Already have an account?</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("signupForm");
+
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+
+        // Clear previous errors
+        ['username','email','password1','password2'].forEach(id => {
+            document.getElementById('error_' + id).textContent = '';
+        });
+
+        const formData = new FormData(form);
+
+        fetch("{% url 'accounts:signup' %}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message || "Account created successfully!");
+                window.location.href = data.redirect_url || "{% url 'smsapp:dashboard' %}";
+            } else {
+                // Show field-specific errors
+                if (data.errors) {
+                    for (const field in data.errors) {
+                        const errorDiv = document.getElementById('error_' + field);
+                        if (errorDiv) {
+                            errorDiv.textContent = data.errors[field].join(', ');
+                        }
+                    }
+                } else {
+                    alert(data.error || "Signup failed.");
+                }
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("An unexpected error occurred.");
+        });
+    });
+});
+</script>
+{% endblock %}

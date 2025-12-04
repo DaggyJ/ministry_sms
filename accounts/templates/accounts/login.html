@@ -1,0 +1,65 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Login{% endblock %}
+
+{% block content %}
+<div class="col-md-4 mx-auto card p-4 shadow">
+    <h3 class="text-center mb-3">Login</h3>
+
+    <form id="loginForm" method="POST">
+        {% csrf_token %}
+
+        <div class="mb-3">
+            <label>Username or Email</label>
+            <input name="username" class="form-control" required>
+        </div>
+
+        <div class="mb-3">
+            <label>Password / Pin</label>
+            <input name="password" type="password" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'accounts:signup' %}">Create Account</a> | 
+        <a href="{% url 'accounts:reset_pin' %}">Forgot Pin?</a>
+    </div>
+
+    <div id="loginError" class="text-danger mt-2"></div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const form = document.getElementById("loginForm");
+    const errorDiv = document.getElementById("loginError");
+
+    form.addEventListener("submit", function(e) {
+        e.preventDefault();
+        errorDiv.textContent = "";
+
+        const formData = new FormData(form);
+
+        fetch("{% url 'accounts:login' %}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                "X-Requested-With": "XMLHttpRequest"
+            },
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = "{% url 'smsapp:dashboard' %}";
+            } else {
+                errorDiv.textContent = data.error || "Invalid credentials. Try again.";
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            errorDiv.textContent = "An unexpected error occurred.";
+        });
+    });
+});
+</script>
+{% endblock %}

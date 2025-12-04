@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
+from decouple import config  # using python-decouple
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +26,7 @@ SECRET_KEY = 'django-insecure-1-a=j&3aw6ota(&!187ilrkk8qjx0@z5-u+g!794m@2cas7v%%
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -40,7 +41,13 @@ INSTALLED_APPS = [
 
     #Installation
     'smsapp',
+    'accounts',
 ]
+#my Working
+AUTH_USER_MODEL = "accounts.CustomUser"
+LOGIN_REDIRECT_URL = 'dashboard'
+LOGOUT_REDIRECT_URL = 'login'
+
 
 STATIC_URL = '/static/'  # URL to access static files
 
@@ -49,6 +56,27 @@ STATICFILES_DIRS = [
 ]
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Optional for collectstatic if deploying
+
+# Email SMTP configuration
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_USER')        # from .env
+EMAIL_HOST_PASSWORD = config('EMAIL_PASS')    # from .env
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+# Celcom SMS API configuration
+CELCOM_PARTNER_ID = config('CELCOM_PARTNER_ID')   # from .env
+CELCOM_API_KEY = config('CELCOM_API_KEY')         # from .env
+CELCOM_API_URL = config("CELCOM_API_URL")           # from .env
+CELCOM_BALANCE_URL = config("CELCOM_API_BALANCE_URL")   # from .env
+
+
+# Media
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 
 MIDDLEWARE = [
@@ -60,6 +88,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+
     # ... the rest of your middleware
 ]
 
@@ -96,6 +125,7 @@ DATABASES = {
 }
 
 
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -130,7 +160,6 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

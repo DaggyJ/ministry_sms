@@ -1,0 +1,33 @@
+{% extends "accounts/base_auth.html" %}
+{% block title %}Confirm PIN Reset{% endblock %}
+
+{% block content %}
+<div class="col-md-4 mx-auto card p-4 shadow">
+    <h3 class="text-center mb-3">Reset Your PIN</h3>
+
+    {% if messages %}
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+
+    <form id="setNewPinForm" method="POST">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="code">6-Digit Code</label>
+            <input name="code" id="code" class="form-control" maxlength="6" placeholder="Enter code" required>
+        </div>
+
+        <div class="mb-3">
+            <label for="new_pin">New PIN</label>
+            <input name="new_pin" id="new_pin" type="password" class="form-control" placeholder="Enter new PIN" required>
+        </div>
+
+        <button class="btn btn-primary w-100" type="submit">Reset PIN</button>
+    </form>
+
+    <div class="text-center mt-3">
+        <a href="{% url 'accounts:login' %}">Back to Login</a>
+    </div>
+</div>
+{% endblock %}

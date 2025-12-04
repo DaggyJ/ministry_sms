@@ -11,9 +11,9 @@
 
 <!-- Navbar with logo between links -->
 <nav class="navbar">
-  <a href="{% url 'dashboard' %}">Dashboard</a>
+  <a href="{% url 'smsapp:dashboard' %}">Dashboard</a>
   <img src="{% static 'media/logo.jpg' %}" alt="Belove Church Logo" class="logo-navbar">
-  <a href="{% url 'upload_contacts' %}">Upload Contacts</a>
+  <a href="{% url 'smsapp:upload_contacts' %}">Upload Contacts</a>
 </nav>
 
 <div class="upload-box">
