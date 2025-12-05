@@ -3,11 +3,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SMS Dashboard | Belove Church Kenya</title>
+  <title>SMS Dashboard | Beloved Church Kenya</title>
   <link rel="stylesheet" href="{% static 'smsapp/css/dashboard.css' %}">
 </head>
 <body>
-  <!-- Navbar -->
+
 <!-- Navbar -->
 <nav class="navbar">
     <a href="{% url 'smsapp:dashboard' %}">Dashboard</a>
@@ -18,10 +18,9 @@
     <button id="show-balance" class="btn btn-info">
         Bal: <span class="balance-amount">Ksh {{ celcom_balance.credit|floatformat:2 }}</span>
     </button>
-{% endif %}
+    {% endif %}
 
-<button id="show-smslogs" class="btn btn-primary">SMS Logs</button>
-
+    <button id="show-smslogs" class="btn btn-primary">SMS Logs</button>
 
     {% if user.is_authenticated %}
         <a href="{% url 'accounts:logout' %}">Logout</a>
@@ -30,8 +29,12 @@
     {% endif %}
 </nav>
 
+{% if user.is_authenticated and user.is_admin %}
+<button id="show-user-management" class="btn btn-warning">Manage Users</button>
+<div id="user-action-msg" style="margin:10px 0; color:green;"></div>
+{% endif %}
 
-<!-- SMS Logs now visible to all users -->
+<!-- SMS Logs -->
 <div id="smslogs-section" class="smslogs-card" style="display:none;">
     <h3>SMS Logs</h3>
     <div class="table-wrapper">
@@ -64,22 +67,31 @@
     </div>
 </div>
 
+<!-- User Management Table -->
+<div id="user-management-section" style="display:none;">
+    <h3>Admin User Management</h3>
+    <table border="1" id="users-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
 
-
-  <div class="dashboard-box">
+<!-- Bulk SMS -->
+<div class="dashboard-box">
     <h2>Send Bulk SMS</h2>
-
-    <!-- Category Tabs -->
     <div class="tabs">
       <button type="button" class="tab-btn" data-category="Regional">Regional</button>
       <button type="button" class="tab-btn" data-category="Subregional">Subregional</button>
       <button type="button" class="tab-btn" data-category="Pastor">Pastor</button>
     </div>
-
-    <!-- Recipients container -->
-    <div id="recipientsContainer">
-      <!-- AJAX will populate checkboxes here -->
-    </div>
+    <div id="recipientsContainer"></div>
 
     {% if result %}
       <p class="msg success">{{ result }}</p>
@@ -88,13 +100,18 @@
     <form method="post" id="smsForm">
       {% csrf_token %}
       <input type="hidden" name="category" id="selectedCategory">
+      <div id="dynamicRecipients"></div>
       <textarea name="message" id="message" rows="5" placeholder="Type your message..." required></textarea>
       <button type="submit" id="sendSmsBtn">Send SMS</button>
     </form>
-  </div>
+</div>
 
-  <script>
+<script>
 document.addEventListener("DOMContentLoaded", function() {
+
+  // =======================
+  // Bulk SMS Tab Handling
+  // =======================
   const tabs = document.querySelectorAll('.tab-btn');
   const categoryInput = document.getElementById('selectedCategory');
   const form = document.getElementById('smsForm');
@@ -109,39 +126,30 @@ document.addEventListener("DOMContentLoaded", function() {
   };
 
   function fetchContacts(tabCategory) {
-    const categoryName = categoryMap[tabCategory] || '';
-    fetch(`/get_pastors/?category=${encodeURIComponent(categoryName)}`)
-      .then(response => response.json())
-      .then(data => renderRecipients(tabCategory, data.pastors))
+    fetch(`/get_pastors/?category=${encodeURIComponent(categoryMap[tabCategory])}`)
+      .then(res => res.json())
+      .then(data => renderRecipients(tabCategory, data.pastors || []))
       .catch(err => console.error("Error fetching contacts:", err));
   }
 
   function renderRecipients(tabCategory, contacts) {
     recipientsContainer.innerHTML = '';
-
-    if(!contacts || contacts.length === 0){
+    if(contacts.length === 0){
       recipientsContainer.textContent = "No contacts available for this category.";
       return;
     }
 
-    // Sort contacts by region → subregion → name
-    contacts.sort((a, b) => {
-      const regionA = a.region || '';
-      const regionB = b.region || '';
-      const subA = a.subregion || '';
-      const subB = b.subregion || '';
-      if(regionA !== regionB) return regionA.localeCompare(regionB);
-      if(subA !== subB) return subA.localeCompare(subB);
-      return a.name.localeCompare(b.name);
-    });
+    // Filter strictly based on tab
+    contacts = contacts.filter(c => c.category === categoryMap[tabCategory]);
 
-    // Group contacts
+
+    // Group contacts by region/subregion
     const grouped = {};
     contacts.forEach(c => {
       const region = c.region || 'No Region';
       const subregion = c.subregion || 'No Subregion';
-      if(!grouped[region]) grouped[region] = {};
-      if(!grouped[region][subregion]) grouped[region][subregion] = [];
+      grouped[region] = grouped[region] || {};
+      grouped[region][subregion] = grouped[region][subregion] || [];
       grouped[region][subregion].push(c);
     });
 
@@ -158,19 +166,10 @@ document.addEventListener("DOMContentLoaded", function() {
     tabSelectDiv.appendChild(document.createTextNode('Select All Contacts in this Tab'));
     recipientsContainer.appendChild(tabSelectDiv);
 
-    // Strict filtering based on tab
-    contacts = contacts.filter(c => {
-      if(tabCategory === 'Regional') return c.category === 'Regional';
-      if(tabCategory === 'Subregional') return c.category === 'Subregional';
-      if(tabCategory === 'Pastor') return c.category === 'Pastor';
-      return false;
-    });
-
     // Render grouped contacts
-    for(const region in grouped){
+    for(const region in grouped){ 
       const regionDiv = document.createElement('div');
       regionDiv.style.marginBottom = '10px';
-
       const regionHeader = document.createElement('strong');
       regionHeader.textContent = region;
       regionDiv.appendChild(regionHeader);
@@ -183,8 +182,7 @@ document.addEventListener("DOMContentLoaded", function() {
         subHeader.textContent = subregion;
         subDiv.appendChild(subHeader);
 
-        // For Pastor tab → show checkbox at subregion level
-        if (tabCategory === "Pastor") {
+        if(tabCategory === 'Pastor'){
           const subSelectDiv = document.createElement('div');
           const subCheckbox = document.createElement('input');
           subCheckbox.type = 'checkbox';
@@ -197,7 +195,6 @@ document.addEventListener("DOMContentLoaded", function() {
           subDiv.appendChild(subSelectDiv);
         }
 
-        // Add individual contacts
         grouped[region][subregion].forEach(c => {
           const label = document.createElement('label');
           label.style.display = 'block';
@@ -206,7 +203,7 @@ document.addEventListener("DOMContentLoaded", function() {
           checkbox.type = 'checkbox';
           checkbox.classList.add('contact-checkbox');
           checkbox.name = 'recipients';
-          checkbox.value = c.phone || ""; // fallback if phone missing
+          checkbox.value = c.phone || '';
           label.appendChild(checkbox);
           label.appendChild(document.createTextNode(` ${c.name} (${c.phone})`));
           subDiv.appendChild(label);
@@ -214,110 +211,187 @@ document.addEventListener("DOMContentLoaded", function() {
 
         regionDiv.appendChild(subDiv);
       }
-
       recipientsContainer.appendChild(regionDiv);
     }
   }
 
-  // Auto-select first tab on page load
-  if (tabs.length > 0) {
+  // Auto-select first tab
+  if(tabs.length > 0){
     const firstTab = tabs[0];
     firstTab.classList.add('selected');
-    const firstCategory = firstTab.dataset.category;
-    categoryInput.value = firstCategory;
-    fetchContacts(firstCategory);
+    categoryInput.value = firstTab.dataset.category;
+    fetchContacts(firstTab.dataset.category);
   }
 
-  // Tab click event
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const tabCategory = tab.dataset.category;
-      categoryInput.value = tabCategory;
-      tabs.forEach(t => t.classList.remove('selected'));
-      tab.classList.add('selected');
-      fetchContacts(tabCategory);
-    });
-  });
+  tabs.forEach(tab => tab.addEventListener('click', () => {
+    categoryInput.value = tab.dataset.category;
+    tabs.forEach(t => t.classList.remove('selected'));
+    tab.classList.add('selected');
+    fetchContacts(tab.dataset.category);
+  }));
+
 
   // Form submit validation
   form.addEventListener('submit', function(e){
-    const checkedBoxes = form.querySelectorAll('input[name="recipients"]:checked');
-    const validCheckedBoxes = Array.from(checkedBoxes).filter(cb => cb.value && cb.value.trim() !== "");
+    e.preventDefault();  // prevent default form submission
+
+    // Grab checked boxes from recipientsContainer
+    const checkedBoxes = recipientsContainer.querySelectorAll('input.contact-checkbox:checked');
+    const recipients = Array.from(checkedBoxes).map(cb => cb.value);
 
     if(!categoryInput.value){
-      e.preventDefault();
-      alert("Please select a category before sending the message.");
-      return;
+        alert("Please select a category before sending the message.");
+        return;
     }
-    if(validCheckedBoxes.length === 0){
-      e.preventDefault();
-      alert("Please select at least one recipient.");
-      return;
+    if(recipients.length === 0){
+        alert("Please select at least one recipient before sending.");
+        return;
     }
     if(!messageInput.value.trim()){
-      e.preventDefault();
-      alert("Please type a message before sending.");
-      messageInput.focus();
-      return;
+        alert("Please type a message before sending.");
+        messageInput.focus();
+        return;
     }
 
-    sendBtn.classList.add('sent');
-    sendBtn.textContent = 'Sent';
+    // Disable button while sending
     sendBtn.disabled = true;
+    sendBtn.textContent = 'Sending...';
 
-    setTimeout(()=>{
-      sendBtn.classList.remove('sent');
-      sendBtn.textContent = 'Send SMS';
-      sendBtn.disabled = false;
-    }, 3000);
+    // Optional: send via AJAX
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    fetch('/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify({
+            category: categoryInput.value,
+            message: messageInput.value.trim(),
+            recipients: recipients
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        alert(data.result?.message || "SMS sent successfully!");
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send SMS';
+        messageInput.value = '';
+        checkedBoxes.forEach(cb => cb.checked = false);
+    })
+    .catch(err => {
+        console.error(err);
+        alert("Error sending SMS. Check console for details.");
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'Send SMS';
+    });
+});
+
+
+  // =======================
+// User Management
+// =======================
+const userBtn = document.getElementById('show-user-management');
+const userSection = document.getElementById('user-management-section');
+const msgDiv = document.getElementById('user-action-msg');
+
+userBtn?.addEventListener('click', function() {
+    userSection.style.display = userSection.style.display === 'none' ? 'block' : 'none';
+    fetchUsers();
+});
+
+async function fetchUsers(){
+    try {
+        const response = await fetch("{% url 'accounts:admin_users_list' %}");
+        const data = await response.json();
+        const tbody = document.querySelector("#users-table tbody");
+        tbody.innerHTML = '';
+
+        const users = data.users || [];
+
+        users.forEach(user => {
+            const tr = document.createElement('tr');
+            const statusColor = user.status === 'approved' ? 'green' : user.status === 'disabled' ? 'red' : 'orange';
+
+            let actions = '';
+
+            // Pending users: Approve or Reject
+            if(user.status === 'pending') {
+                actions += `<button onclick="updateStatus(${user.id}, 'approve')">Approve</button> `;
+                actions += `<button onclick="updateStatus(${user.id}, 'reject')">Reject</button>`;
+            }
+            // Approved users: Disable if not admin
+            else if(user.status === 'approved') {
+                if(!user.is_admin) {
+                    actions += `<button onclick="updateStatus(${user.id}, 'disable')">Disable</button>`;
+                }
+            }
+            // Disabled users: Enable
+            else if(user.status === 'disabled') {
+                actions += `<button onclick="updateStatus(${user.id}, 'enable')">Enable</button>`;
+            }
+
+            tr.innerHTML = `
+                <td>${user.id}</td>
+                <td>${user.username}</td>
+                <td style="color:${statusColor}">${user.status}</td>
+                <td>${actions}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+    } catch(err) {
+        console.error("Error fetching users:", err);
+        msgDiv.textContent = "Failed to load users. Please try again.";
+        msgDiv.style.color = 'red';
+    }
+}
+
+window.updateStatus = async function(userId, action){
+    try {
+        const response = await fetch("{% url 'accounts:user_status' %}",{
+            method:"POST",
+            headers:{
+                "Content-Type":"application/json",
+                "X-CSRFToken":"{{ csrf_token }}"
+            },
+            body:JSON.stringify({user_id:userId, action:action})
+        });
+
+        const data = await response.json();
+
+        msgDiv.textContent = data.status || "Action completed";
+        msgDiv.style.color = (action === 'disable' || action === 'reject') ? 'red' : 'green';
+
+        // Refresh the user table after action
+        fetchUsers();
+    } catch(err) {
+        console.error("Error updating user status:", err);
+        msgDiv.textContent = "Failed to update user status.";
+        msgDiv.style.color = 'red';
+    }
+};
+
+  // =======================
+  // SMS Logs & Balance Toggle
+  // =======================
+  const balanceBtn = document.getElementById('show-balance');
+  const smslogsBtn = document.getElementById('show-smslogs');
+  const balanceSection = document.getElementById('balance-section');
+  const smslogsSection = document.getElementById('smslogs-section');
+
+  balanceBtn?.addEventListener('click', ()=> {
+    if(balanceSection) balanceSection.style.display = balanceSection.style.display==='none'?'block':'none';
+    if(smslogsSection) smslogsSection.style.display='none';
+  });
+
+  smslogsBtn?.addEventListener('click', ()=> {
+    if(smslogsSection) smslogsSection.style.display = smslogsSection.style.display==='none'?'block':'none';
+    if(balanceSection) balanceSection.style.display='none';
   });
 
 });
-
-
-document.getElementById("btn-balance").addEventListener("click", function() {
-    fetch("{% url 'smsapp:check_balance' %}")
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById("balance-container").innerHTML =
-                `<p>Celcom Balance: Ksh ${data.balance}</p>`;
-        })
-        .catch(err => console.error(err));
-});
-
-// Optional: toggle SMS Logs visibility
-document.getElementById("btn-smslogs").addEventListener("click", function() {
-    const logs = document.getElementById("smslogs-container");
-    logs.style.display = (logs.style.display === "none" || !logs.style.display) ? "block" : "none";
-});
-
-
-// Balance & Sms Logs
-
-document.addEventListener('DOMContentLoaded', function() {
-    const balanceBtn = document.getElementById('show-balance');
-    const smslogsBtn = document.getElementById('show-smslogs');
-    const balanceSection = document.getElementById('balance-section');
-    const smslogsSection = document.getElementById('smslogs-section');
-
-    balanceBtn?.addEventListener('click', function() {
-        balanceSection.style.display = balanceSection.style.display === 'none' ? 'block' : 'none';
-        smslogsSection.style.display = 'none';
-    });
-
-    smslogsBtn?.addEventListener('click', function() {
-        smslogsSection.style.display = smslogsSection.style.display === 'none' ? 'block' : 'none';
-        balanceSection.style.display = 'none';
-    });
-});
-
 </script>
+
 </body>
 </html>
-
-
-
-
-
-
-

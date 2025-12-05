@@ -44,7 +44,7 @@ def send_sms(message, recipients, sender_id="BelovedChurch"):
     logger.debug(f"Payload: {payload}")
 
     try:
-        response = requests.post(settings.CELCOM_SMS_URL, json=payload, timeout=15)
+        response = requests.post(settings.CELCOM_API_URL, json=payload, timeout=15)
 
         try:
             data = response.json()

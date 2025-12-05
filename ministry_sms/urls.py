@@ -19,11 +19,14 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import path, include
 import os
+from accounts.views import admin_users_list
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('smsapp.urls', namespace='smsapp')),
     path('accounts/', include('accounts.urls', namespace='accounts')),  
+    path('admin-users-list/', admin_users_list, name='admin_users_list'),
+
 ]
 
 

@@ -1,18 +1,30 @@
 # accounts/views.py
-from django.views.generic import FormView, View
-from django.contrib.auth import login, logout
-from django.shortcuts import redirect, render
-from django.contrib import messages
-from django.http import JsonResponse
-from django.urls import reverse
-from .forms import SignUpForm, LoginForm, ResetPinForm, VerifyPinForm, UserCreationForm, CustomSetPasswordForm
-from django.contrib.auth import get_user_model
-from .models import PinReset
+import json
 import random
+from datetime import timedelta
+from django.views import View
+from django.views.generic import FormView
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.contrib.auth import login, logout, get_user_model
+from django.contrib import messages
+from django.urls import reverse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from django.contrib.auth.mixins import UserPassesTestMixin
 from django.core.mail import send_mail
 from django.conf import settings
-from django.utils import timezone
-from datetime import timedelta
+from django.contrib.auth.decorators import login_required, user_passes_test
+
+from .forms import (
+    SignUpForm,
+    LoginForm,
+    ResetPinForm,
+    VerifyPinForm,
+    CustomSetPasswordForm
+)
+from .models import PinReset, CustomUser
 
 User = get_user_model()
 
@@ -25,31 +37,28 @@ class SignUpView(FormView):
     form_class = SignUpForm
 
     def form_valid(self, form):
-        user = form.save()
-        login(self.request, user)
+        # Create user but do NOT activate immediately
+        user = form.save(commit=False)
+        user.is_active = False  # User cannot login until admin approval
+        user.save()
 
-        redirect_url = reverse('smsapp:dashboard')
+        redirect_url = reverse('accounts:login')  # Redirect to login after registration
 
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return JsonResponse({
                 'success': True,
-                'message': 'Account created successfully!',
+                'message': 'Account created successfully! Awaiting admin approval.',
                 'redirect_url': redirect_url
             })
 
-        messages.success(self.request, "Account created successfully!")
+        messages.success(self.request, "Account created successfully! Awaiting admin approval.")
         return redirect(redirect_url)
 
     def form_invalid(self, form):
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             errors = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
-            return JsonResponse({
-                'success': False,
-                'error': 'Validation failed',
-                'errors': errors
-            })
+            return JsonResponse({'success': False, 'error': 'Validation failed', 'errors': errors})
         return super().form_invalid(form)
-
 
 # ---------------------------
 # Login View
@@ -61,26 +70,17 @@ class LoginView(FormView):
     def form_valid(self, form):
         user = form.get_user()
         login(self.request, user)
-
         redirect_url = reverse('smsapp:dashboard')
 
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': 'Logged in successfully!',
-                'redirect_url': redirect_url
-            })
+            return JsonResponse({'success': True, 'message': 'Logged in successfully!', 'redirect_url': redirect_url})
 
         return redirect(redirect_url)
 
     def form_invalid(self, form):
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             errors = form.errors.as_json()
-            return JsonResponse({
-                'success': False,
-                'error': 'Invalid credentials',
-                'errors': errors
-            })
+            return JsonResponse({'success': False, 'error': 'Invalid credentials', 'errors': errors})
         return super().form_invalid(form)
 
 
@@ -97,7 +97,7 @@ class LogoutView(View):
 
 
 # ---------------------------
-# Reset PIN View
+# Reset PIN Views
 # ---------------------------
 class ResetPinView(FormView):
     template_name = 'accounts/reset_pin.html'
@@ -126,19 +126,12 @@ class ResetPinView(FormView):
         redirect_url = reverse('accounts:verify_pin')
 
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': f"6-digit code sent to {email}",
-                'redirect_url': redirect_url
-            })
+            return JsonResponse({'success': True, 'message': f"6-digit code sent to {email}", 'redirect_url': redirect_url})
 
         messages.success(self.request, f"6-digit code sent to {email}")
         return redirect(redirect_url)
 
 
-# ---------------------------
-# Verify PIN View
-# ---------------------------
 class VerifyPinView(FormView):
     template_name = 'accounts/verify_pin.html'
     form_class = VerifyPinForm
@@ -164,47 +157,30 @@ class VerifyPinView(FormView):
         self.request.session['reset_user_id'] = pin.user.id
 
         redirect_url = reverse('accounts:set_new_password')
-
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': 'Code verified! You can now reset your password.',
-                'redirect_url': redirect_url
-            })
+            return JsonResponse({'success': True, 'message': 'Code verified! You can now reset your password.', 'redirect_url': redirect_url})
 
         messages.success(self.request, "Code verified! You can now reset your password.")
         return redirect(redirect_url)
 
 
-# ---------------------------
-# Set New Password View
-# ---------------------------
 class SetNewPasswordView(FormView):
     template_name = 'accounts/set_new_password.html'
     form_class = CustomSetPasswordForm
 
-    # Pass the user instance to the form
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         user_id = self.request.session.get('reset_user_id')
-        if not user_id:
-            kwargs['user'] = None
-        else:
-            kwargs['user'] = User.objects.get(id=user_id)
+        kwargs['user'] = User.objects.get(id=user_id) if user_id else None
         return kwargs
 
     def form_valid(self, form):
-        form.save()  # Saves the new password
-        self.request.session.pop('reset_user_id', None)  # Clear session
-
+        form.save()
+        self.request.session.pop('reset_user_id', None)
         redirect_url = reverse('accounts:login')
 
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
-            return JsonResponse({
-                'success': True,
-                'message': 'Password reset successfully!',
-                'redirect_url': redirect_url
-            })
+            return JsonResponse({'success': True, 'message': 'Password reset successfully!', 'redirect_url': redirect_url})
 
         messages.success(self.request, "Password reset successfully!")
         return redirect(redirect_url)
@@ -212,9 +188,78 @@ class SetNewPasswordView(FormView):
     def form_invalid(self, form):
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             errors = {field: [str(e) for e in errs] for field, errs in form.errors.items()}
-            return JsonResponse({
-                'success': False,
-                'error': 'Validation failed',
-                'errors': errors
-            })
+            return JsonResponse({'success': False, 'error': 'Validation failed', 'errors': errors})
         return super().form_invalid(form)
+
+
+# ---------------------------
+# Admin User Management Views
+# ---------------------------
+@method_decorator(csrf_exempt, name='dispatch')
+class UserStatusView(UserPassesTestMixin, View):
+    """
+    Handles approving, disabling, enabling, and rejecting users.
+    Expects JSON body: { "user_id": <id>, "action": "approve|disable|enable|reject" }
+    """
+    def test_func(self):
+        return self.request.user.is_admin
+
+    def post(self, request):
+        data = json.loads(request.body)
+        user_id = data.get("user_id")
+        action = data.get("action")
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return JsonResponse({"status": "User not found"}, status=404)
+
+        if action == 'approve':
+            user.status = 'approved'
+            user.is_active = True  # Activate account for login
+            user.save()
+            return JsonResponse({"status": "User approved successfully"})
+
+        elif action == 'enable':
+            user.status = 'approved'
+            user.is_active = True
+            user.save()
+            return JsonResponse({"status": "User enabled successfully"})
+
+        elif action == 'disable':
+            if user.is_admin:
+                return JsonResponse({"status": "Cannot disable admin"}, status=400)
+            user.status = 'disabled'
+            user.is_active = False  # Deactivate account to prevent login
+            user.save()
+            return JsonResponse({"status": "User disabled successfully"})
+
+        elif action == 'reject':
+            user.delete()
+            return JsonResponse({"status": "User rejected and removed"})
+
+        else:
+            return JsonResponse({"status": "Invalid action"}, status=400)
+
+
+
+
+@login_required
+@user_passes_test(lambda u: u.is_admin)
+def manage_users_page(request):
+    """
+    Render the admin page for managing users.
+    Only accessible by admin users.
+    """
+    return render(request, "accounts/manage_users.html")
+
+
+@login_required
+@user_passes_test(lambda u: u.is_admin)
+def admin_users_list(request):
+    """
+    Returns a JSON list of all users for admin management.
+    """
+    users = CustomUser.objects.all().values("id", "username", "status")
+    return JsonResponse({"users": list(users)})
+

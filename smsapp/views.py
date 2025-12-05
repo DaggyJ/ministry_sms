@@ -5,6 +5,7 @@ from django.http import JsonResponse
 from .models import Category, Contact, SMSLog
 from .forms import UploadContactsForm
 import openpyxl
+import json
 from .utils import send_sms, get_celcom_balance
 from django.contrib import messages  # <-- add this
 
@@ -75,6 +76,9 @@ class GetPastorsView(LoginRequiredMixin, View):
 # ==========================
 # Dashboard for Sending SMS
 # ==========================
+
+
+
 class DashboardView(LoginRequiredMixin, View):
     template_name = "smsapp/dashboard.html"
 
@@ -95,43 +99,28 @@ class DashboardView(LoginRequiredMixin, View):
         return render(request, self.template_name, context)
 
     def post(self, request):
-        """
-        Handle sending SMS to selected recipients.
-        """
-        categories = Category.objects.all()
-        category_id = request.POST.get("category")
-        message = request.POST.get("message", "").strip()
-        recipients = request.POST.getlist("recipients")  # List of selected phone numbers
+    # Detect JSON
+        try:
+            data = json.loads(request.body)
+            category = data.get("category")
+            message = data.get("message", "").strip()
+            recipients = data.get("recipients", [])
+        except json.JSONDecodeError:
+            return JsonResponse({"status": "error", "message": "Invalid request data"}, status=400)
 
-        context = {"categories": categories}
-
-        # Validate
-        if not category_id:
-            context["result"] = {"status": "error", "message": "Please select a category."}
-            context["sms_logs"] = SMSLog.objects.order_by('-sent_at')[:20]
-            if request.user.is_staff:
-                context["celcom_balance"] = get_celcom_balance()
-            return render(request, self.template_name, context)
-
+    # Validation
+        if not category:
+            return JsonResponse({"status": "error", "message": "Please select a category."})
         if not recipients:
-            context["result"] = {"status": "error", "message": "Please select at least one recipient."}
-            context["sms_logs"] = SMSLog.objects.order_by('-sent_at')[:20]
-            if request.user.is_staff:
-                context["celcom_balance"] = get_celcom_balance()
-            return render(request, self.template_name, context)
-
+            return JsonResponse({"status": "error", "message": "Please select at least one recipient."})
         if not message:
-            context["result"] = {"status": "error", "message": "Message cannot be empty."}
-            context["sms_logs"] = SMSLog.objects.order_by('-sent_at')[:20]
-            if request.user.is_staff:
-                context["celcom_balance"] = get_celcom_balance()
-            return render(request, self.template_name, context)
+            return JsonResponse({"status": "error", "message": "Message cannot be empty."})
 
-        # Send SMS
+    # Send SMS
         sender_id = "BELOVEDCHKE"
         result = send_sms(message, recipients, sender_id)
 
-        # Log SMS (visible to all if needed, but only admin can see Celcom balance)
+    # Log SMS
         SMSLog.objects.create(
             sender=request.user,
             message=message,
@@ -139,13 +128,11 @@ class DashboardView(LoginRequiredMixin, View):
             status=result.get("status", "unknown")
         )
 
-        context["result"] = result
-        context["sms_logs"] = SMSLog.objects.order_by('-sent_at')[:20]
+        return JsonResponse({
+            "status": result.get("status", "unknown"),
+            "message": result.get("message", "SMS sent successfully")
+        })
 
-        if request.user.is_staff:
-            context["celcom_balance"] = get_celcom_balance()
-
-        return render(request, self.template_name, context)
 
 
 # ==========================

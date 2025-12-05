@@ -3,8 +3,19 @@ from django.db import models
 from django.conf import settings
 
 class CustomUser(AbstractUser):
+    is_admin = models.BooleanField(default=False)
     phone = models.CharField(max_length=15, blank=True, null=True)
 
+    # Add Status field
+    status = models.CharField(
+        max_length=20,
+        choices=[('pending', 'Pending'), ('approved', 'Approved'), ('disabled', 'Disabled')],
+        default='pending',
+        help_text="User account status"
+    )
+
+    def __str__(self):
+        return self.username
 
 class PinReset(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

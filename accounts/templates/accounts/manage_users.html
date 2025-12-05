@@ -1,0 +1,43 @@
+{% extends "accounts/base.html" %}
+{% block content %}
+
+<h3>Manage Users</h3>
+
+<div id="users"></div>
+
+<script>
+function loadUsers() {
+    fetch("/admin_users_list/")  
+    .then(r => r.json())
+    .then(data => {
+        let html = "<ul class='list-group'>";
+        data.users.forEach(u => {
+            html += `
+                <li class="list-group-item d-flex justify-content-between">
+                    ${u.username} — ${u.status}
+                    <div>
+                        <button onclick="updateUserStatus(${u.id}, 'approve')" class="btn btn-success btn-sm">Approve</button>
+                        <button onclick="updateUserStatus(${u.id}, 'disable')" class="btn btn-danger btn-sm">Disable</button>
+                        <button onclick="updateUserStatus(${u.id}, 'reject')" class="btn btn-warning btn-sm">Reject</button>
+                    </div>
+                </li>`;
+        });
+        html += "</ul>";
+        document.getElementById("users").innerHTML = html;
+    });
+}
+
+loadUsers();
+
+function updateUserStatus(id, action) {
+    fetch("/accounts/user-status/", { 
+        method: "POST", 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: id, action: action })
+    })
+    .then(r => r.json())
+    .then(() => loadUsers());
+}
+</script>
+
+{% endblock %}
