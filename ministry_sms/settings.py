@@ -18,9 +18,12 @@ DEBUG = config("DEBUG", default=False, cast=bool)
 
 # Allow Render host + localhost for dev
 ALLOWED_HOSTS = [
-    os.environ.get("RENDER_EXTERNAL_HOSTNAME", "localhost"),
-    "127.0.0.1",
+    'JonsonDaggy.pythonanywhere.com',  # your PythonAnywhere domain
+    'www.JonsonDaggy.pythonanywhere.com',  # optional if you plan to use www
+    '127.0.0.1',  # local access
+    'localhost',   # local access
 ]
+
 
 # -----------------------------
 # APPLICATIONS
