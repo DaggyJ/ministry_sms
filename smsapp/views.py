@@ -78,7 +78,6 @@ class GetPastorsView(LoginRequiredMixin, View):
 # ==========================
 
 
-
 class DashboardView(LoginRequiredMixin, View):
     template_name = "smsapp/dashboard.html"
 
