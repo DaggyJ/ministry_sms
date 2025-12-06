@@ -17,12 +17,7 @@ SECRET_KEY = config("SECRET_KEY", default="unsafe-local-key")
 DEBUG = config("DEBUG", default=False, cast=bool)
 
 # Allow Render host + localhost for dev
-ALLOWED_HOSTS = [
-    'JonsonDaggy.pythonanywhere.com',  # your PythonAnywhere domain
-    'www.JonsonDaggy.pythonanywhere.com',  # optional if you plan to use www
-    '127.0.0.1',  # local access
-    'localhost',   # local access
-]
+ALLOWED_HOSTS = ['*']
 
 
 # -----------------------------
@@ -108,13 +103,9 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# -----------------------------
-# STATIC FILES
-# -----------------------------
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
-STATIC_ROOT = BASE_DIR / 'staticfiles'  # collectstatic will gather files here
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # -----------------------------
 # MEDIA FILES
